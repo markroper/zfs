@@ -3229,7 +3229,7 @@ ztest_zil_remount(ztest_ds_t *zd, uint64_t id)
 
 	/* zfsvfs_setup() */
 	VERIFY3P(zil_open(os, ztest_get_data, NULL), ==, zd->zd_zilog);
-	zil_replay(os, zd, ztest_replay_vector, NULL);
+	zil_replay(os, zd, ztest_replay_vector);
 
 	(void) pthread_rwlock_unlock(&zd->zd_zilog_lock);
 	mutex_exit(&zd->zd_dirobj_lock);
@@ -4927,7 +4927,7 @@ ztest_dmu_objset_create_destroy(ztest_ds_t *zd, uint64_t id)
 	    ztest_dmu_objset_own(name, DMU_OST_OTHER, B_FALSE,
 	    B_TRUE, FTAG, &os) == 0) {
 		ztest_zd_init(zdtmp, NULL, os);
-		zil_replay(os, zdtmp, ztest_replay_vector, NULL);
+		zil_replay(os, zdtmp, ztest_replay_vector);
 		ztest_zd_fini(zdtmp);
 		dmu_objset_disown(os, B_TRUE, FTAG);
 	}
@@ -8033,7 +8033,7 @@ ztest_dataset_open(int d)
 
 	ztest_dataset_dirobj_verify(zd);
 
-	zil_replay(os, zd, ztest_replay_vector, NULL);
+	zil_replay(os, zd, ztest_replay_vector);
 
 	ztest_dataset_dirobj_verify(zd);
 
@@ -8080,7 +8080,7 @@ ztest_replay_zil_cb(const char *name, void *arg)
 	zdtmp = kmem_alloc(sizeof (ztest_ds_t), KM_SLEEP);
 
 	ztest_zd_init(zdtmp, NULL, os);
-	zil_replay(os, zdtmp, ztest_replay_vector, NULL);
+	zil_replay(os, zdtmp, ztest_replay_vector);
 	ztest_zd_fini(zdtmp);
 
 	if (dmu_objset_zil(os)->zl_parse_lr_count != 0 &&

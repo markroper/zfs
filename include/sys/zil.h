@@ -618,30 +618,6 @@ typedef int zil_parse_blk_func_t(zilog_t *zilog, const blkptr_t *bp, void *arg,
 typedef int zil_parse_lr_func_t(zilog_t *zilog, const lr_t *lr, void *arg,
     uint64_t txg);
 typedef int zil_replay_func_t(void *arg1, void *arg2, boolean_t byteswap);
-
-typedef void zfs_replay_prime_arc_func_t(void *args);
-
-typedef struct zil_replay_prime_state zil_replay_prime_state_t;
-
-/*
- * Argument to a replay prime callback.  Carries only the record fields
- * the callbacks use, not a copy of the record.
- */
-typedef struct zil_replay_prime_arg {
-	void		*zrp_arg;
-	zil_replay_prime_state_t *zrp_prime_state;
-	uint64_t	zrp_foid;	/* file; lr_link_obj for TX_LINK */
-	uint64_t	zrp_doid;	/* TX_LINK directory */
-	uint64_t	zrp_offset;	/* TX_WRITE */
-	uint64_t	zrp_length;	/* TX_WRITE */
-} zil_replay_prime_arg_t;
-
-/*
- * Every replay prime callback must call zil_replay_prime_task_done()
- * before returning.
- */
-extern void zil_replay_prime_task_done(zil_replay_prime_state_t *);
-
 typedef int zil_get_data_t(void *arg, uint64_t arg2, lr_write_t *lr, char *dbuf,
     struct lwb *lwb, zio_t *zio);
 
@@ -660,8 +636,7 @@ extern zilog_t	*zil_open(objset_t *os, zil_get_data_t *get_data,
 extern void	zil_close(zilog_t *zilog);
 
 extern boolean_t zil_replay(objset_t *os, void *arg,
-    zil_replay_func_t *const replay_func[TX_MAX_TYPE],
-    zfs_replay_prime_arc_func_t *const replay_prime_func[TX_MAX_TYPE]);
+    zil_replay_func_t *const replay_func[TX_MAX_TYPE]);
 extern boolean_t zil_replaying(zilog_t *zilog, dmu_tx_t *tx);
 extern boolean_t zil_replay_whole_blocks(zilog_t *zilog);
 extern boolean_t zil_destroy(zilog_t *zilog, boolean_t keep_first);

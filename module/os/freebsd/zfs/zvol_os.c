@@ -1537,8 +1537,7 @@ zvol_os_create_minor(const char *name)
 		if (zil_replay_disable)
 			replayed_zil = zil_destroy(zv->zv_zilog, B_FALSE);
 		else
-			replayed_zil = zil_replay(os, zv, zvol_replay_vector,
-			    NULL);
+			replayed_zil = zil_replay(os, zv, zvol_replay_vector);
 	}
 	if (replayed_zil)
 		zil_close(zv->zv_zilog);

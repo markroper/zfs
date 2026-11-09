@@ -2782,10 +2782,13 @@ The default value of
 will create a maximum of one thread per two CPUs.
 .
 .It Sy zfs_zil_replay_prime_arc Ns = Ns Sy 0 Ns | Ns 1 Pq int
-When enabled, ZIL replay first parses the log and, in parallel on
-.Sy dp_zil_prime_taskq ,
-reads the objects and blocks that replay will need, priming the ARC
-before the serial replay pass.
+When enabled, ZIL replay first parses the log and prefetches the dnodes,
+indirect blocks and partially overwritten data blocks that replay will need,
+using
+.Sy dp_zil_prime_taskq
+for
+.Sy TX_WRITE
+records.
 This turns the serial read-modify-write cycles of
 .Sy TX_WRITE ,
 .Sy TX_LINK
@@ -2795,9 +2798,9 @@ replay into cache hits and can greatly reduce pool import time when the
 pool has high read latency and the ZIL is large.
 .
 .It Sy zfs_zil_replay_prime_delay_ms Ns = Ns Sy 0 Ns ms Pq uint
-Delay each asynchronous ARC priming callback by this many milliseconds.
+Delay each asynchronous ARC priming task by this many milliseconds.
 This parameter is available only in debug builds and is intended for testing
-the callback drain at the end of ZIL replay.
+the task drain at the end of ZIL replay.
 .
 .It Sy zfs_zil_replay_record_delay_ms Ns = Ns Sy 0 Ns ms Pq uint
 Delay each record by this many milliseconds during ZIL replay parsing.
