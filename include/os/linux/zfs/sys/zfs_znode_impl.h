@@ -151,6 +151,8 @@ extern boolean_t zfs_relatime_need_update(const struct inode *);
 extern void	zfs_zero_eof_page(struct znode *, struct zfs_locked_range *,
     uint64_t);
 extern zil_replay_func_t *const zfs_replay_vector[TX_MAX_TYPE];
+extern zfs_replay_prime_arc_func_t *const
+    zfs_replay_prime_vector[TX_MAX_TYPE];
 
 #ifdef	__cplusplus
 }

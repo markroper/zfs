@@ -173,6 +173,8 @@ extern void zfs_zero_eof_page(struct znode *, struct zfs_locked_range *,
     uint64_t);
 
 extern zil_replay_func_t *const zfs_replay_vector[TX_MAX_TYPE];
+extern zfs_replay_prime_arc_func_t *const
+    zfs_replay_prime_vector[TX_MAX_TYPE];
 
 extern int zfs_znode_parent_and_name(struct znode *zp, struct znode **dzpp,
     char *buf, uint64_t buflen);

@@ -2764,6 +2764,48 @@ The default value of
 .Sy 100%
 will create a maximum of one thread per CPU.
 .
+.It Sy zfs_zil_prime_taskq_maxalloc Ns = Ns Sy 64 Pq int
+The maximum number of
+.Sy dp_zil_prime_taskq
+entries that are allowed to be cached.
+.
+.It Sy zfs_zil_prime_taskq_minalloc Ns = Ns Sy 32 Pq int
+The number of
+.Sy dp_zil_prime_taskq
+entries that are pre-populated when the taskq is first created.
+.
+.It Sy zfs_zil_prime_taskq_nthr_pct Ns = Ns Sy 50 Ns % Pq int
+This controls the number of threads used by
+.Sy dp_zil_prime_taskq .
+The default value of
+.Sy 50%
+will create a maximum of one thread per two CPUs.
+.
+.It Sy zfs_zil_replay_prime_arc Ns = Ns Sy 0 Ns | Ns 1 Pq int
+When enabled, ZIL replay first parses the log and, in parallel on
+.Sy dp_zil_prime_taskq ,
+reads the objects and blocks that replay will need, priming the ARC
+before the serial replay pass.
+This turns the serial read-modify-write cycles of
+.Sy TX_WRITE ,
+.Sy TX_LINK
+and
+.Sy TX_SETATTR
+replay into cache hits and can greatly reduce pool import time when the
+pool has high read latency and the ZIL is large.
+.
+.It Sy zfs_zil_replay_prime_delay_ms Ns = Ns Sy 0 Ns ms Pq uint
+Delay each asynchronous ARC priming callback by this many milliseconds.
+This parameter is available only in debug builds and is intended for testing
+the callback drain at the end of ZIL replay.
+.
+.It Sy zfs_zil_replay_record_delay_ms Ns = Ns Sy 0 Ns ms Pq uint
+Delay each record by this many milliseconds during ZIL replay parsing.
+When ARC priming is enabled, the delay applies to both the priming and real
+replay passes.
+This parameter is available only in debug builds and is intended for testing
+replay ordering.
+.
 .It Sy zil_maxblocksize Ns = Ns Sy 131072 Ns B Po 128 KiB Pc Pq uint
 This sets the maximum block size used by the ZIL.
 On very fragmented pools, lowering this

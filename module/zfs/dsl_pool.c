@@ -160,6 +160,11 @@ uint64_t zfs_delay_scale = 1000 * 1000 * 1000 / 2000;
 static int zfs_zil_clean_taskq_nthr_pct = 100;
 static int zfs_zil_clean_taskq_minalloc = 1024;
 static int zfs_zil_clean_taskq_maxalloc = 1024 * 1024;
+int zfs_zil_replay_prime_arc = 0;
+
+static int zfs_zil_prime_taskq_nthr_pct = 50;
+static int zfs_zil_prime_taskq_minalloc = 32;
+static int zfs_zil_prime_taskq_maxalloc = 64;
 
 int
 dsl_pool_open_special_dir(dsl_pool_t *dp, const char *name, dsl_dir_t **ddp)
@@ -207,6 +212,12 @@ dsl_pool_open_impl(spa_t *spa, uint64_t txg)
 	    zfs_zil_clean_taskq_minalloc,
 	    zfs_zil_clean_taskq_maxalloc,
 	    TASKQ_PREPOPULATE | TASKQ_THREADS_CPU_PCT);
+
+	dp->dp_zil_prime_taskq = taskq_create("dp_zil_prime_taskq",
+	    zfs_zil_prime_taskq_nthr_pct, minclsyspri,
+	    zfs_zil_prime_taskq_minalloc,
+	    zfs_zil_prime_taskq_maxalloc,
+	    TASKQ_THREADS_CPU_PCT);
 
 	mutex_init(&dp->dp_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&dp->dp_spaceavail_cv, NULL, CV_DEFAULT, NULL);
@@ -397,6 +408,7 @@ dsl_pool_close(dsl_pool_t *dp)
 	txg_list_destroy(&dp->dp_dirty_dirs);
 
 	taskq_destroy(dp->dp_zil_clean_taskq);
+	taskq_destroy(dp->dp_zil_prime_taskq);
 	spa_sync_tq_destroy(dp->dp_spa);
 
 	if (dp->dp_spa->spa_state == POOL_STATE_EXPORTED ||
@@ -1588,3 +1600,15 @@ ZFS_MODULE_PARAM(zfs_zil, zfs_zil_, clean_taskq_minalloc, INT, ZMOD_RW,
 
 ZFS_MODULE_PARAM(zfs_zil, zfs_zil_, clean_taskq_maxalloc, INT, ZMOD_RW,
 	"Max number of taskq entries that are cached");
+
+ZFS_MODULE_PARAM(zfs_zil, zfs_zil_, replay_prime_arc, INT, ZMOD_RW,
+	"Prime arc cache prior to serial processing in zil_replay");
+
+ZFS_MODULE_PARAM(zfs_zil, zfs_zil_, prime_taskq_nthr_pct, INT, ZMOD_RW,
+	"Max percent of CPUs that are used per dp_prime_taskq");
+
+ZFS_MODULE_PARAM(zfs_zil, zfs_zil_, prime_taskq_minalloc, INT, ZMOD_RW,
+	"Number of dp_prime_taskq entries that are pre-populated");
+
+ZFS_MODULE_PARAM(zfs_zil, zfs_zil_, prime_taskq_maxalloc, INT, ZMOD_RW,
+	"Max number of dp_prime_taskq entries that are cached");

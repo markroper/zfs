@@ -86,6 +86,22 @@
  */
 static uint_t zfs_commit_timeout_pct = 10;
 
+/* Testing only: per-record delay during both ZIL replay passes. */
+#ifdef ZFS_DEBUG
+static uint_t zfs_zil_replay_record_delay_ms = 0;
+#endif
+
+/*
+ * Tracks priming callbacks dispatched by one zil_replay() invocation.
+ * zrps_lock protects zrps_outstanding, and zrps_cv wakes the replay
+ * thread when the count reaches zero.
+ */
+struct zil_replay_prime_state {
+	kmutex_t	zrps_lock;
+	kcondvar_t	zrps_cv;
+	uint64_t	zrps_outstanding;
+};
+
 /*
  * See zil.h for more information about these fields.
  */
@@ -4772,7 +4788,10 @@ zil_resume(void *cookie)
 
 typedef struct zil_replay_arg {
 	zil_replay_func_t *const *zr_replay;
+	zfs_replay_prime_arc_func_t *const *zr_replay_prime;
 	void		*zr_arg;
+	boolean_t	zr_priming;
+	zil_replay_prime_state_t *zr_prime_state;
 	boolean_t	zr_byteswap;
 	char		*zr_lr;
 	lr_write_t	*zr_split_lr;	/* the pending write, minus its data */
@@ -5053,6 +5072,12 @@ zil_replay_log_record(zilog_t *zilog, const lr_t *lr, void *zra,
 	uint64_t reclen = lr->lrc_reclen;
 	uint64_t txtype = lr->lrc_txtype;
 	int error = 0;
+	taskqid_t tid;
+
+#ifdef ZFS_DEBUG
+	if (zfs_zil_replay_record_delay_ms != 0)
+		delay(MSEC_TO_TICK(zfs_zil_replay_record_delay_ms));
+#endif
 
 	zilog->zl_replaying_seq = lr->lrc_seq;
 
@@ -5077,6 +5102,54 @@ zil_replay_log_record(zilog_t *zilog, const lr_t *lr, void *zra,
 		    LR_FOID_GET_OBJ(((lr_ooo_t *)lr)->lr_foid), NULL);
 		if (error == ENOENT || error == EEXIST)
 			return (0);
+	}
+
+	if (zr->zr_priming) {
+		if (zr->zr_replay_prime[txtype] != NULL) {
+			zil_replay_prime_arg_t *zrp = kmem_zalloc(
+			    sizeof (zil_replay_prime_arg_t), KM_SLEEP);
+			zrp->zrp_arg = zr->zr_arg;
+			zrp->zrp_prime_state = zr->zr_prime_state;
+
+			switch (txtype) {
+			case TX_WRITE: {
+				const lr_write_t *lrw = (const lr_write_t *)lr;
+				zrp->zrp_foid = lrw->lr_foid;
+				zrp->zrp_offset = lrw->lr_offset;
+				zrp->zrp_length = lrw->lr_length;
+				break;
+			}
+			case TX_LINK: {
+				const lr_link_t *lrl = (const lr_link_t *)lr;
+				zrp->zrp_foid = lrl->lr_link_obj;
+				zrp->zrp_doid = lrl->lr_doid;
+				break;
+			}
+			case TX_SETATTR:
+				zrp->zrp_foid =
+				    ((const lr_setattr_t *)lr)->lr_foid;
+				break;
+			default:
+				ASSERT(0);
+				kmem_free(zrp, sizeof (zil_replay_prime_arg_t));
+				return (0);
+			}
+
+			/*
+			 * Count first; the callback may finish during dispatch.
+			 */
+			mutex_enter(&zr->zr_prime_state->zrps_lock);
+			zr->zr_prime_state->zrps_outstanding++;
+			mutex_exit(&zr->zr_prime_state->zrps_lock);
+			tid = taskq_dispatch(
+			    zilog->zl_dmu_pool->dp_zil_prime_taskq,
+			    zr->zr_replay_prime[txtype], zrp, TQ_SLEEP);
+			if (tid == TASKQID_INVALID) {
+				kmem_free(zrp, sizeof (zil_replay_prime_arg_t));
+				zil_replay_prime_task_done(zr->zr_prime_state);
+			}
+		}
+		return (0);
 	}
 
 	/*
@@ -5155,6 +5228,17 @@ again:
 	return (0);
 }
 
+void
+zil_replay_prime_task_done(zil_replay_prime_state_t *zrps)
+{
+	mutex_enter(&zrps->zrps_lock);
+	VERIFY3U(zrps->zrps_outstanding, >, 0);
+	zrps->zrps_outstanding--;
+	if (zrps->zrps_outstanding == 0)
+		cv_broadcast(&zrps->zrps_cv);
+	mutex_exit(&zrps->zrps_lock);
+}
+
 static int
 zil_incr_blks(zilog_t *zilog, const blkptr_t *bp, void *arg, uint64_t claim_txg)
 {
@@ -5171,12 +5255,14 @@ zil_incr_blks(zilog_t *zilog, const blkptr_t *bp, void *arg, uint64_t claim_txg)
  */
 boolean_t
 zil_replay(objset_t *os, void *arg,
-    zil_replay_func_t *const replay_func[TX_MAX_TYPE])
+    zil_replay_func_t *const replay_func[TX_MAX_TYPE],
+    zfs_replay_prime_arc_func_t *const replay_prime_func[TX_MAX_TYPE])
 {
 	zilog_t *zilog = dmu_objset_zil(os);
 	const zil_header_t *zh = zilog->zl_header;
 	zil_replay_arg_t zr;
 	lr_write_t split_lr;
+	zil_replay_prime_state_t zrps;
 	int err;
 
 	if ((zh->zh_flags & ZIL_REPLAY_NEEDED) == 0) {
@@ -5184,8 +5270,11 @@ zil_replay(objset_t *os, void *arg,
 	}
 
 	zr.zr_replay = replay_func;
+	zr.zr_replay_prime = replay_prime_func;
 	zr.zr_arg = arg;
 	zr.zr_byteswap = BP_SHOULD_BYTESWAP(&zh->zh_log);
+	zr.zr_priming = B_FALSE;
+	zr.zr_prime_state = NULL;
 	zr.zr_lr = vmem_alloc(ZIL_REPLAY_BUFSZ, KM_SLEEP);
 	zr.zr_split_lr = &split_lr;
 	zr.zr_split_seq = 0;
@@ -5213,10 +5302,48 @@ zil_replay(objset_t *os, void *arg,
 	zilog->zl_replay = B_TRUE;
 	zilog->zl_replay_time = ddi_get_lbolt();
 	ASSERT0(zilog->zl_replay_blks);
+	if (zfs_zil_replay_prime_arc && replay_prime_func != NULL) {
+		mutex_init(&zrps.zrps_lock, NULL, MUTEX_DEFAULT, NULL);
+		cv_init(&zrps.zrps_cv, NULL, CV_DEFAULT, NULL);
+		zrps.zrps_outstanding = 0;
+		zr.zr_prime_state = &zrps;
+		zfs_dbgmsg("Starting zfs_zil_replay_prime_arc");
+		zr.zr_priming = B_TRUE;
+		(void) zil_parse(zilog, zil_replay_scan_blk,
+		    zil_replay_log_record, &zr, zh->zh_claim_txg, B_TRUE);
+		zr.zr_priming = B_FALSE;
+		zfs_dbgmsg("Finished zfs_zil_replay_prime_arc");
+	}
+
 	(void) zil_parse(zilog, zil_incr_blks, zil_replay_log_record, &zr,
 	    zh->zh_claim_txg, B_TRUE);
 	/* If the log ended inside a split write, count it as dropped. */
 	zil_replay_split_drop(zilog, &zr, 0);
+	/*
+	 * Let priming callbacks overlap real replay, then drain only this
+	 * invocation's callbacks before the caller can release zr_arg.
+	 */
+	if (zr.zr_prime_state != NULL) {
+		mutex_enter(&zrps.zrps_lock);
+		if (zrps.zrps_outstanding != 0)
+			zfs_dbgmsg("Waiting for %llu outstanding ZIL replay "
+			    "prime callbacks", (u_longlong_t)
+			    zrps.zrps_outstanding);
+		while (zrps.zrps_outstanding != 0) {
+			clock_t deadline = ddi_get_lbolt() + SEC_TO_TICK(30);
+
+			if (cv_timedwait(&zrps.zrps_cv, &zrps.zrps_lock,
+			    deadline) == -1 && zrps.zrps_outstanding != 0) {
+				zfs_dbgmsg("Still waiting for %llu outstanding "
+				    "ZIL replay prime callbacks",
+				    (u_longlong_t)zrps.zrps_outstanding);
+			}
+		}
+		mutex_exit(&zrps.zrps_lock);
+		zr.zr_prime_state = NULL;
+		cv_destroy(&zrps.zrps_cv);
+		mutex_destroy(&zrps.zrps_lock);
+	}
 	vmem_free(zr.zr_lr, ZIL_REPLAY_BUFSZ);
 	zilog->zl_replay_write2 = B_FALSE;
 
@@ -5286,6 +5413,11 @@ EXPORT_SYMBOL(zil_kstat_values_update);
 
 ZFS_MODULE_PARAM(zfs, zfs_, commit_timeout_pct, UINT, ZMOD_RW,
 	"ZIL block open timeout percentage");
+
+#ifdef ZFS_DEBUG
+ZFS_MODULE_PARAM(zfs, zfs_, zil_replay_record_delay_ms, UINT, ZMOD_RW,
+	"Testing only: delay per ZIL record during replay (ms)");
+#endif
 
 ZFS_MODULE_PARAM(zfs_zil, zil_, replay_disable, INT, ZMOD_RW,
 	"Disable intent logging replay");
