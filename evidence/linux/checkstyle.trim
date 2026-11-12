@@ -1,0 +1,26 @@
+make[1]: Entering directory '/var/tmp/b-final-debug/module'
+objdump -t zstd/lib/common/entropy_common.o zstd/lib/common/error_private.o zstd/lib/common/fse_decompress.o zstd/lib/common/pool.o zstd/lib/common/zstd_common.o zstd/lib/compress/fse_compress.o zstd/lib/compress/hist.o zstd/lib/compress/huf_compress.o zstd/lib/compress/zstd_compress.o zstd/lib/compress/zstd_compress_literals.o zstd/lib/compress/zstd_compress_sequences.o zstd/lib/compress/zstd_compress_superblock.o zstd/lib/compress/zstd_double_fast.o zstd/lib/compress/zstd_fast.o zstd/lib/compress/zstd_lazy.o zstd/lib/compress/zstd_ldm.o zstd/lib/compress/zstd_opt.o zstd/lib/compress/zstd_preSplit.o zstd/lib/decompress/huf_decompress.o zstd/lib/decompress/zstd_ddict.o zstd/lib/decompress/zstd_decompress.o zstd/lib/decompress/zstd_decompress_block.o | awk '/file format/ {print}  $2 == "g" && (!/ zfs_/ && !/ __pfx_zfs_/) {++ret; print}  END {exit ret}'
+zstd/lib/common/entropy_common.o:     file format elf64-x86-64
+zstd/lib/common/error_private.o:     file format elf64-x86-64
+zstd/lib/common/fse_decompress.o:     file format elf64-x86-64
+zstd/lib/common/pool.o:     file format elf64-x86-64
+zstd/lib/common/zstd_common.o:     file format elf64-x86-64
+zstd/lib/compress/fse_compress.o:     file format elf64-x86-64
+zstd/lib/compress/hist.o:     file format elf64-x86-64
+zstd/lib/compress/huf_compress.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_compress.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_compress_literals.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_compress_sequences.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_compress_superblock.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_double_fast.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_fast.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_lazy.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_ldm.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_opt.o:     file format elf64-x86-64
+zstd/lib/compress/zstd_preSplit.o:     file format elf64-x86-64
+zstd/lib/decompress/huf_decompress.o:     file format elf64-x86-64
+zstd/lib/decompress/zstd_ddict.o:     file format elf64-x86-64
+zstd/lib/decompress/zstd_decompress.o:     file format elf64-x86-64
+zstd/lib/decompress/zstd_decompress_block.o:     file format elf64-x86-64
+make[1]: Leaving directory '/var/tmp/b-final-debug/module'
+skipping flake8 because flake8 is not installed

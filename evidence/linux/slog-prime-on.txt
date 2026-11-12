@@ -1,0 +1,5 @@
+prime_arc at end: 1
+PASS	  33
+Percent passed:	100.0%
+0
+ZTEST-OK

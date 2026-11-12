@@ -1,0 +1,18 @@
+BUILD-OK dbg-r3 debug
+BUILD-OK rel-r3 release
+CHECKSTYLE rc=0
+slog_replay_prime_volume.ksh (run as root) [00:07] [PASS]
+slog_replay_prime_fs.ksh (run as root) [00:06] [PASS]
+slog_replay_prime_heal.ksh (run as root) [00:03] [PASS]
+slog_replay_prime_race.ksh (run as root) [00:19] [PASS]
+PASS	  33
+Percent passed:	100.0%
+ZTEST-OK
+RESULT wl=img-write label=r3 tgt=delay:23 prime=1 import_s=22.35 slow_reads=9005 data=match replay_errors=0
+RESULT wl=img-link label=r3 tgt=delay:23 prime=1 import_s=5.45 slow_reads=5507 data=match replay_errors=0
+RESULT wl=img-create label=r3 tgt=delay:23 prime=1 import_s=4.95 slow_reads=2479 data=match replay_errors=0
+RESULT wl=img-remove label=r3 tgt=delay:23 prime=1 import_s=6.05 slow_reads=6723 data=match replay_errors=0
+RESULT wl=img-rename label=r3 tgt=delay:23 prime=1 import_s=6.39 slow_reads=6723 data=match replay_errors=0
+RESULT wl=img-truncate label=r3 tgt=delay:23 prime=1 import_s=8.78 slow_reads=4523 data=match replay_errors=0
+RESULT wl=img-clone label=r3 tgt=delay:23 prime=1 import_s=5.86 slow_reads=2528 data=match replay_errors=0
+	

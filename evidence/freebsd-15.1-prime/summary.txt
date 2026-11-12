@@ -1,0 +1,19 @@
+ZTEST: start ref=97a9dde7e mode=prime
+ZTEST: head 97a9dde7e kernel 15.1-RELEASE
+ZTEST: BUILD-OK
+ZTEST: zts default slog_replay_prime_fs [PASS]
+ZTEST: zts default slog_replay_prime_heal [PASS]
+ZTEST: zts default slog_replay_prime_volume [PASS]
+ZTEST: zts default slog_replay_prime_race [SKIP]
+ZTEST: zts default slog_replay_fs_001 [PASS]
+ZTEST: zts default slog_replay_fs_002 [PASS]
+ZTEST: zts default slog_replay_volume [PASS]
+ZTEST: zts prime-on slog_replay_prime_fs [PASS]
+ZTEST: zts prime-on slog_replay_prime_heal [PASS]
+ZTEST: zts prime-on slog_replay_prime_volume [PASS]
+ZTEST: zts prime-on slog_replay_prime_race [SKIP]
+ZTEST: zts prime-on slog_replay_fs_001 [PASS]
+ZTEST: zts prime-on slog_replay_fs_002 [PASS]
+ZTEST: zts prime-on slog_replay_volume [PASS]
+ZTEST: ZTEST-OK
+ZTEST: DONE
